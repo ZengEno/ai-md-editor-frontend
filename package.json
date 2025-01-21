@@ -1,0 +1,44 @@
+{
+  "name": "ai-article-editor-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@chakra-ui/icons": "^2.2.4",
+    "@chakra-ui/react": "^2.10.4",
+    "@emotion/react": "^11.13.5",
+    "@emotion/styled": "^11.13.5",
+    "@monaco-editor/react": "^4.6.0",
+    "@tanstack/react-query": "4.28",
+    "axios": "^1.7.8",
+    "data-fns": "^1.1.0",
+    "date-fns": "^2.30.0",
+    "diff": "^7.0.0",
+    "framer-motion": "^11.12.0",
+    "katex": "^0.16.11",
+    "lucide-react": "^0.468.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^9.0.1",
+    "react-router-dom": "^7.0.2",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.0",
+    "remark-math": "^6.0.0",
+    "zustand": "^4.3.7"
+  },
+  "devDependencies": {
+    "@types/date-fns": "^2.5.3",
+    "@types/diff": "^6.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.0.27",
+    "@types/react-dom": "^18.0.10",
+    "@vitejs/plugin-react": "^3.1.0",
+    "typescript": "^4.9.3",
+    "vite": "^4.1.0"
+  }
+}
