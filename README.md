@@ -11,24 +11,25 @@ To get started with the AI MD Editor frontend, follow these steps:
 1. Clone the repository:
 
     ```bash
-    git clone <repository-url>
+    git clone https://github.com/ZengEno/ai-md-editor-frontend.git
     cd ai-md-editor
     ```
 
-2. Install the necessary dependencies:
+2. Modify the environment file: 
+   Rename the `.env.example` file to `.env` or any extension indicating the environment, like `.env.development`. Then, modify the `VITE_API_URL` to reflect the backend API. For local development, you can keep it as it is in the `.env.example`.
+
+3. Install the necessary dependencies:
    If you do not have npm installed, please install it first. Then run:
+   ```bash
+   npm install
+   ```
 
-    ```bash
-    npm install
-    ```
+4. Start the development environment:
+   ```bash
+   npm run dev
+   ```
 
-3. Start the development environment:
-
-    ```bash
-    npm run dev
-    ```
-
-4. Open the web page:
+5. Open the web page:
    After running the above command, you will see a link in the terminal. Open that link in your web browser to access the editor.
 
 **Note**: Ensure that the backend service is running simultaneously to use the web page effectively.
