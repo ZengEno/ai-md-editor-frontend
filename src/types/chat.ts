@@ -34,6 +34,7 @@ export interface ChatResponse {
     assistant_id: string;
     role: "assistant";
     content: string;
+    think_content?: string;
     edited_article?: string;
     edited_article_related_to?: string;
     other_data?: Record<string, any>;
@@ -43,6 +44,7 @@ export interface ChatMessage {
     id: string;
     role: "user" | "assistant";
     content: string;
+    think_content?: string;
     edited_article?: string;
     edited_article_related_to?: string;
     other_data?: Record<string, any>;

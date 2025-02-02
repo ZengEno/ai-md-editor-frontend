@@ -1,7 +1,9 @@
-import { Box, Text, VStack, useDisclosure } from "@chakra-ui/react";
+import { Box, Text, VStack, useDisclosure, Button } from "@chakra-ui/react";
 import { diffLines, Change } from "diff";
 import { useFileStore } from "../stores/fileStore";
 import { useEditedArticleStore } from "../stores/editedArticleStore";
+import { useState, useRef, useEffect } from "react";
+import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 
 interface SuggestedChangeViewerProps {
     originalContent: string;
@@ -9,8 +11,6 @@ interface SuggestedChangeViewerProps {
     relatedFileName: string;
     isHidden?: boolean;
 }
-
-type CompactDiffPart = Change | { type: "skipped"; count: number };
 
 export function SuggestedChangeViewer({
     originalContent,
@@ -21,27 +21,22 @@ export function SuggestedChangeViewer({
     const { files, handleFileSelect } = useFileStore();
     const { setEditedContent, setIsShowingEdit } = useEditedArticleStore();
     const { isOpen, onOpen, onClose } = useDisclosure();
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [needsExpansion, setNeedsExpansion] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const maxCollapsedHeight = 200; // Using number for comparison
 
     const relatedFile = files.find((f) => f.name === relatedFileName);
-
     const diff = diffLines(originalContent, editedContent);
-    const compactDiff: CompactDiffPart[] = [];
-    let skippedLines = 0;
+    const changedParts = diff.filter((part) => part.added || part.removed);
 
-    for (const part of diff) {
-        if (part.added || part.removed) {
-            if (skippedLines > 0) {
-                compactDiff.push({ type: "skipped", count: skippedLines });
-                skippedLines = 0;
-            }
-            compactDiff.push(part);
-        } else {
-            skippedLines += part.count || 0;
+    useEffect(() => {
+        if (contentRef.current) {
+            setNeedsExpansion(
+                contentRef.current.scrollHeight > maxCollapsedHeight
+            );
         }
-    }
-    if (skippedLines > 0) {
-        compactDiff.push({ type: "skipped", count: skippedLines });
-    }
+    }, [changedParts]);
 
     const handleClick = async () => {
         if (relatedFile) {
@@ -64,27 +59,32 @@ export function SuggestedChangeViewer({
             _hover={{ bg: "gray.100" }}
             onClick={handleClick}
         >
-            <Text fontWeight="medium" mb={2} fontSize="sm">
+            <Text fontWeight="medium" mb={2} fontSize="xs">
                 Suggested changes for: {relatedFileName}
             </Text>
             {!isHidden && (
-                <VStack align="stretch" spacing={1}>
-                    {compactDiff.map((part, index) => {
-                        if ("type" in part && part.type === "skipped") {
-                            return (
-                                <Text
-                                    key={index}
-                                    color="gray.500"
-                                    fontSize="2xs"
-                                    textAlign="center"
-                                >
-                                    — skipped {part.count} lines —
-                                </Text>
-                            );
-                        }
-
-                        if ("value" in part) {
-                            return (
+                <>
+                    <Box
+                        ref={contentRef}
+                        maxH={isExpanded ? "none" : `${maxCollapsedHeight}px`}
+                        overflowY="auto"
+                        transition="max-height 0.2s ease-in-out"
+                        mb={needsExpansion ? 2 : 0}
+                        css={{
+                            "&::-webkit-scrollbar": {
+                                width: "4px",
+                            },
+                            "&::-webkit-scrollbar-track": {
+                                width: "6px",
+                            },
+                            "&::-webkit-scrollbar-thumb": {
+                                background: "gray.200",
+                                borderRadius: "24px",
+                            },
+                        }}
+                    >
+                        <VStack align="stretch" spacing={1}>
+                            {changedParts.map((part, index) => (
                                 <Box
                                     key={index}
                                     bg={
@@ -120,11 +120,32 @@ export function SuggestedChangeViewer({
                                             )
                                     )}
                                 </Box>
-                            );
-                        }
-                        return null;
-                    })}
-                </VStack>
+                            ))}
+                        </VStack>
+                    </Box>
+                    {needsExpansion && (
+                        <Button
+                            variant="ghost"
+                            size="xs"
+                            width="100%"
+                            height="20px"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsExpanded(!isExpanded);
+                            }}
+                            rightIcon={
+                                isExpanded ? (
+                                    <ChevronUpIcon />
+                                ) : (
+                                    <ChevronDownIcon />
+                                )
+                            }
+                            _hover={{ bg: "gray.100" }}
+                        >
+                            {isExpanded ? "Show less" : "Show more"}
+                        </Button>
+                    )}
+                </>
             )}
         </Box>
     );

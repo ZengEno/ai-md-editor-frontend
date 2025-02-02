@@ -106,6 +106,7 @@ export const useAIChat = () => {
                     id: crypto.randomUUID(),
                     role: "assistant",
                     content: response.content,
+                    think_content: response.think_content,
                     edited_article: response.edited_article,
                     edited_article_related_to:
                         response.edited_article_related_to,

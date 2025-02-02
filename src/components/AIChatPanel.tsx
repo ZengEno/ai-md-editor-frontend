@@ -18,7 +18,7 @@ import { AssistantSettingsModal } from "./AssistantSettingsModal";
 import { useAssistants } from "../hooks/useAssistants";
 import { useAssistantStore } from "../stores/assistantStore";
 import { AssistantDetailModal } from "./AssistantDetailModal";
-import { ChevronDownIcon } from "@chakra-ui/icons";
+import { ChevronDownIcon, ChevronUpIcon } from "@chakra-ui/icons";
 import { useFileStore } from "../stores/fileStore";
 import { useEditedArticleStore } from "../stores/editedArticleStore";
 import { ContextBoard } from "./ContextBoard";
@@ -29,6 +29,114 @@ import { ArticleReference } from "../types/chat";
 import { SuggestedChangeViewer } from "./SuggestedChangeViewer";
 import DiffViewer from "./DiffViewer";
 import { ConversationManager } from "../services/ConversationManager";
+
+const ThinkContent = ({ content }: { content: string }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [needsExpansion, setNeedsExpansion] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const maxCollapsedHeight = 100; // Using number for comparison
+
+    useEffect(() => {
+        if (contentRef.current) {
+            setNeedsExpansion(
+                contentRef.current.scrollHeight > maxCollapsedHeight
+            );
+        }
+    }, [content]);
+
+    return (
+        <Box
+            bg="gray.100"
+            p={2}
+            borderRadius="md"
+            borderLeft="4px solid"
+            borderColor="gray.200"
+        >
+            <Text fontSize="sm" color="gray.600" fontStyle="italic" mb={1}>
+                Thinking process:
+            </Text>
+            <Box
+                ref={contentRef}
+                fontSize="sm"
+                color="gray.700"
+                maxH={isExpanded ? "none" : `${maxCollapsedHeight}px`}
+                overflowY="auto"
+                transition="max-height 0.2s ease-in-out"
+                mb={needsExpansion ? 2 : 0}
+                css={{
+                    "&::-webkit-scrollbar": {
+                        width: "4px",
+                    },
+                    "&::-webkit-scrollbar-track": {
+                        width: "6px",
+                    },
+                    "&::-webkit-scrollbar-thumb": {
+                        background: "gray.200",
+                        borderRadius: "24px",
+                    },
+                }}
+            >
+                <Text whiteSpace="pre-wrap">{content}</Text>
+            </Box>
+            {needsExpansion && (
+                <Button
+                    variant="ghost"
+                    size="xs"
+                    width="100%"
+                    height="20px"
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    rightIcon={
+                        isExpanded ? <ChevronUpIcon /> : <ChevronDownIcon />
+                    }
+                    _hover={{ bg: "gray.100" }}
+                >
+                    {isExpanded ? "Show less" : "Show more"}
+                </Button>
+            )}
+        </Box>
+    );
+};
+
+const MessageContent = ({
+    content,
+    getCurrentContent,
+    currentFileName,
+    edited_article,
+    edited_article_related_to,
+}: {
+    content: string;
+    getCurrentContent: () => string;
+    currentFileName?: string;
+    edited_article?: string;
+    edited_article_related_to?: string;
+}) => {
+    // Parse content for <edited_content> tags
+    const parts = content.split(/<edited_content>|<\/edited_content>/);
+
+    return (
+        <>
+            {parts.map((part, index) => {
+                if (index % 2 === 0) {
+                    // Regular text content
+                    return <Text key={index}>{part}</Text>;
+                } else {
+                    // Edited content - render SuggestedChangeViewer
+                    return (
+                        <SuggestedChangeViewer
+                            key={index}
+                            originalContent={getCurrentContent()}
+                            editedContent={edited_article || ""}
+                            relatedFileName={edited_article_related_to || ""}
+                            isHidden={
+                                edited_article_related_to !== currentFileName
+                            }
+                        />
+                    );
+                }
+            })}
+        </>
+    );
+};
 
 export function AIChatPanel() {
     const {
@@ -53,10 +161,8 @@ export function AIChatPanel() {
         editorRef,
         getCurrentContent,
     } = useFileStore();
-    const {
-        currentConversation,
-        showLatestConversation,
-    } = useConversationStore();
+    const { currentConversation, showLatestConversation } =
+        useConversationStore();
     const [editingMessageId, setEditingMessageId] = useState<string | null>(
         null
     );
@@ -242,26 +348,24 @@ export function AIChatPanel() {
                                 p={2}
                                 mb={2}
                                 borderRadius="md"
+                                boxShadow="sm"
                             >
-                                {message.content}
+                                {message.role === "assistant" &&
+                                    message.think_content && (
+                                        <ThinkContent
+                                            content={message.think_content}
+                                        />
+                                    )}
 
-                                <Box>
-                                    {message.edited_article &&
-                                        message.edited_article_related_to ===
-                                            currentFile?.name && (
-                                            <SuggestedChangeViewer
-                                                originalContent={getCurrentContent()}
-                                                editedContent={
-                                                    message.edited_article || ""
-                                                }
-                                                relatedFileName={
-                                                    message.edited_article_related_to ||
-                                                    ""
-                                                }
-                                                isHidden={false}
-                                            />
-                                        )}
-                                </Box>
+                                <MessageContent
+                                    content={message.content}
+                                    getCurrentContent={getCurrentContent}
+                                    currentFileName={currentFile?.name}
+                                    edited_article={message.edited_article}
+                                    edited_article_related_to={
+                                        message.edited_article_related_to
+                                    }
+                                />
                             </Box>
                         ))}
                         {isLoading && (
