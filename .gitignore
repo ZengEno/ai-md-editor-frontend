@@ -32,6 +32,7 @@ ehthumbs.db
 .env.development
 .env.production
 .env.test
+*.production
 
 # Don't ignore the example file
 !.env.example
@@ -47,3 +48,5 @@ coverage/
 localhost+2-key.pem
 localhost+2.pem
 
+# nginx config
+nginx.conf

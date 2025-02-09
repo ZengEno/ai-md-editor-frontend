@@ -8,11 +8,10 @@ AI MD Editor (Frontend) is the frontend component of AI MD Editor, an AI agent-b
 
 To get started with the AI MD Editor frontend, follow these steps:
 
-1. Clone the repository:
+1. Navigate to the directory you want to save the project and clone the repository:
 
     ```bash
     git clone https://github.com/ZengEno/ai-md-editor-frontend.git
-    cd ai-md-editor
     ```
 
 2. Modify the environment file: 
