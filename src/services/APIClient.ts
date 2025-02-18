@@ -3,6 +3,7 @@ import { useAuthStore } from "../stores/authStore";
 import { TokenManager } from "./TokenManager";
 import { ChatRequest, ChatResponse, StreamResponse } from "../types/chat";
 import Logger from "../utils/logger";
+import { WebSocketManager } from "./WebSocketManager";
 
 interface LoginResponse {
     messages: string;
@@ -32,11 +33,18 @@ interface RegisterRequest {
 class APIClientClass {
     private client: AxiosInstance;
     private tokenManager: TokenManager;
+    private wsManager: WebSocketManager;
     private maxRefreshAttempts = 3;
     private refreshAttempts = 0;
 
     constructor() {
         this.tokenManager = new TokenManager(import.meta.env.VITE_API_URL);
+
+        // Create WebSocketManager with WS URL
+        const wsUrl =
+            import.meta.env.VITE_API_URL.replace(/^http/, "ws") +
+            "/chat/stream";
+        this.wsManager = new WebSocketManager(wsUrl, this.tokenManager);
 
         this.client = axios.create({
             baseURL: import.meta.env.VITE_API_URL,
@@ -232,7 +240,35 @@ class APIClientClass {
         }
     }
 
-    async streamChatWithAssistant() {
+    async streamChatWithAssistant() {}
+
+    async connectWebSocket() {
+        try {
+            await this.wsManager.connect();
+            Logger.info("WebSocket connected successfully");
+        } catch (error) {
+            Logger.error("Failed to connect WebSocket:", error);
+            throw error;
+        }
+    }
+
+    disconnectWebSocket() {
+        this.wsManager.disconnect();
+    }
+
+    async sendStreamRequest(request: any) {
+        if (!this.wsManager.isConnected()) {
+            throw new Error("WebSocket is not connected");
+        }
+        this.wsManager.sendStreamRequest(request);
+    }
+
+    subscribeToStream(handler: (data: any) => void) {
+        this.wsManager.subscribeToStream(handler);
+    }
+
+    unsubscribeFromStream(handler: (data: any) => void) {
+        this.wsManager.unsubscribeFromStream(handler);
     }
 }
 
