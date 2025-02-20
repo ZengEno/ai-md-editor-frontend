@@ -30,11 +30,23 @@ import { SuggestedChangeViewer } from "./SuggestedChangeViewer";
 import DiffViewer from "./DiffViewer";
 import { ConversationManager } from "../services/ConversationManager";
 
-const ThinkContent = ({ content }: { content: string }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
+const ThinkContent = ({
+    content,
+    isStreaming = false,
+}: {
+    content: string;
+    isStreaming?: boolean;
+}) => {
+    const [isExpanded, setIsExpanded] = useState(isStreaming);
     const [needsExpansion, setNeedsExpansion] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
-    const maxCollapsedHeight = 100; // Using number for comparison
+    const maxCollapsedHeight = 100;
+
+    useEffect(() => {
+        if (isStreaming) {
+            setIsExpanded(true);
+        }
+    }, [content, isStreaming]);
 
     useEffect(() => {
         if (contentRef.current) {
@@ -103,12 +115,14 @@ const MessageContent = ({
     currentFileName,
     edited_article,
     edited_article_related_to,
+    isStreaming = false,
 }: {
     content: string;
     getCurrentContent: () => string;
     currentFileName?: string;
     edited_article?: string;
     edited_article_related_to?: string;
+    isStreaming?: boolean;
 }) => {
     // Parse content for <edited_content> tags
     const parts = content.split(/<edited_content>|<\/edited_content>/);
@@ -120,18 +134,43 @@ const MessageContent = ({
                     // Regular text content
                     return <Text key={index}>{part}</Text>;
                 } else {
-                    // Edited content - render SuggestedChangeViewer
-                    return (
-                        <SuggestedChangeViewer
-                            key={index}
-                            originalContent={getCurrentContent()}
-                            editedContent={edited_article || ""}
-                            relatedFileName={edited_article_related_to || ""}
-                            isHidden={
-                                edited_article_related_to !== currentFileName
-                            }
-                        />
-                    );
+                    // Edited content section
+                    if (!edited_article) {
+                        return null;
+                    }
+
+                    if (isStreaming) {
+                        // During streaming, show edited_article as plain text
+                        return (
+                            <Box
+                                key={index}
+                                bg="yellow.50"
+                                p={2}
+                                my={2}
+                                borderRadius="md"
+                            >
+                                <Text whiteSpace="pre-wrap">
+                                    {edited_article}
+                                </Text>
+                            </Box>
+                        );
+                    } else {
+                        // After streaming, use SuggestedChangeViewer
+                        return (
+                            <SuggestedChangeViewer
+                                key={index}
+                                originalContent={getCurrentContent()}
+                                editedContent={edited_article}
+                                relatedFileName={
+                                    edited_article_related_to || ""
+                                }
+                                isHidden={
+                                    edited_article_related_to !==
+                                    currentFileName
+                                }
+                            />
+                        );
+                    }
                 }
             })}
         </>
@@ -141,6 +180,8 @@ const MessageContent = ({
 export function AIChatPanel() {
     const {
         messages,
+        streamingMessage,
+        isStreaming,
         input,
         isLoading,
         setInput,
@@ -262,6 +303,20 @@ export function AIChatPanel() {
         return "Ask AI for help...";
     };
 
+    // Update the auto-scroll effect
+    useEffect(() => {
+        if (streamingMessage) {
+            // Use setTimeout to ensure content is rendered
+            setTimeout(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            }, 0);
+        }
+    }, [
+        streamingMessage?.content,
+        streamingMessage?.think_content,
+        streamingMessage?.edited_article,
+    ]);
+
     return (
         <Flex direction="column" h="100%">
             <Box flexShrink={0}>
@@ -337,7 +392,7 @@ export function AIChatPanel() {
                         overflowY="auto"
                         p={4}
                     >
-                        {currentConversation?.messages.map((message) => (
+                        {messages.map((message) => (
                             <Box
                                 key={message.id}
                                 bg={
@@ -354,6 +409,7 @@ export function AIChatPanel() {
                                     message.think_content && (
                                         <ThinkContent
                                             content={message.think_content}
+                                            isStreaming={false}
                                         />
                                     )}
 
@@ -365,9 +421,58 @@ export function AIChatPanel() {
                                     edited_article_related_to={
                                         message.edited_article_related_to
                                     }
+                                    isStreaming={false}
                                 />
                             </Box>
                         ))}
+                        {streamingMessage && (
+                            <Box
+                                bg="gray.50"
+                                p={2}
+                                mb={2}
+                                borderRadius="md"
+                                boxShadow="sm"
+                            >
+                                {/* Show think content if exists */}
+                                {streamingMessage.think_content && (
+                                    <ThinkContent
+                                        content={streamingMessage.think_content}
+                                        isStreaming={true}
+                                    />
+                                )}
+
+                                {/* Show main content */}
+                                <Box
+                                    fontSize="sm"
+                                    color="gray.700"
+                                    css={{
+                                        "&::-webkit-scrollbar": {
+                                            width: "4px",
+                                        },
+                                        "&::-webkit-scrollbar-track": {
+                                            width: "6px",
+                                        },
+                                        "&::-webkit-scrollbar-thumb": {
+                                            background: "gray.200",
+                                            borderRadius: "24px",
+                                        },
+                                    }}
+                                >
+                                    <MessageContent
+                                        content={streamingMessage.content}
+                                        getCurrentContent={getCurrentContent}
+                                        currentFileName={currentFile?.name}
+                                        edited_article={
+                                            streamingMessage.edited_article
+                                        }
+                                        edited_article_related_to={
+                                            streamingMessage.edited_article_related_to
+                                        }
+                                        isStreaming={true}
+                                    />
+                                </Box>
+                            </Box>
+                        )}
                         {isLoading && (
                             <Box textAlign="center" py={2}>
                                 <Spinner size="sm" color="blue.500" />

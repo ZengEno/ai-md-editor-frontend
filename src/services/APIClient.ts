@@ -270,6 +270,10 @@ class APIClientClass {
     unsubscribeFromStream(handler: (data: any) => void) {
         this.wsManager.unsubscribeFromStream(handler);
     }
+
+    isWebSocketConnected(): boolean {
+        return this.wsManager.isConnected();
+    }
 }
 
 export const APIClient = new APIClientClass();

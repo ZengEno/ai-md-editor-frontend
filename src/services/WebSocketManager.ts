@@ -11,6 +11,12 @@ export class WebSocketManager {
     private pingInterval: NodeJS.Timeout | null = null;
     private readonly PING_INTERVAL = 30000; // 30 seconds
 
+    // Add reconnection properties
+    private reconnectAttempts = 0;
+    private maxReconnectAttempts = 5;
+    private reconnectTimeout: NodeJS.Timeout | null = null;
+    private isReconnecting = false;
+
     constructor(wsUrl: string, tokenManager: TokenManager) {
         this.wsUrl = wsUrl;
         this.tokenManager = tokenManager;
@@ -18,7 +24,7 @@ export class WebSocketManager {
 
     private startPingInterval() {
         this.stopPingInterval(); // Clear any existing interval first
-        
+
         this.pingInterval = setInterval(() => {
             if (this.isConnected()) {
                 const pingMessage = JSON.stringify({ type: "ping" });
@@ -37,6 +43,44 @@ export class WebSocketManager {
         }
     }
 
+    private getReconnectDelay(): number {
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+        return Math.min(1000 * Math.pow(2, this.reconnectAttempts), 16000);
+    }
+
+    private async attemptReconnect() {
+        if (
+            this.isReconnecting ||
+            this.reconnectAttempts >= this.maxReconnectAttempts
+        ) {
+            return;
+        }
+
+        this.isReconnecting = true;
+        this.reconnectAttempts++;
+
+        const delay = this.getReconnectDelay();
+        Logger.info(
+            `Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts})`
+        );
+
+        this.reconnectTimeout = setTimeout(async () => {
+            try {
+                await this.connect();
+                this.reconnectAttempts = 0;
+                this.isReconnecting = false;
+                Logger.info("Reconnection successful");
+            } catch (error) {
+                this.isReconnecting = false;
+                if (this.reconnectAttempts < this.maxReconnectAttempts) {
+                    this.attemptReconnect();
+                } else {
+                    Logger.error("Max reconnection attempts reached");
+                }
+            }
+        }, delay);
+    }
+
     connect(): Promise<void> {
         return new Promise((resolve, reject) => {
             try {
@@ -46,7 +90,8 @@ export class WebSocketManager {
                     Logger.info("WebSocket connected");
                     this.authenticate()
                         .then(() => {
-                            this.startPingInterval(); // Start ping interval after successful authentication
+                            this.startPingInterval();
+                            this.reconnectAttempts = 0; // Reset reconnect attempts on successful connection
                             resolve();
                         })
                         .catch(reject);
@@ -56,7 +101,12 @@ export class WebSocketManager {
                     Logger.info(
                         `WebSocket disconnected: ${event.reason} (${event.code})`
                     );
-                    this.stopPingInterval(); // Stop ping interval on connection close
+                    this.stopPingInterval();
+
+                    // Attempt to reconnect if it wasn't a normal closure
+                    if (event.code !== 1000 && event.code !== 1001) {
+                        this.attemptReconnect();
+                    }
                 };
 
                 this.socket.onerror = (error) => {
@@ -67,16 +117,52 @@ export class WebSocketManager {
 
                 this.socket.onmessage = (event) => {
                     try {
-                        const message = JSON.parse(event.data);
+                        // Check if event.data is empty or not a string
+                        if (!event.data || typeof event.data !== "string") {
+                            Logger.warn(
+                                "Received invalid WebSocket message:",
+                                event.data
+                            );
+                            return;
+                        }
+
+                        let message;
+                        try {
+                            message = JSON.parse(event.data);
+                        } catch (parseError) {
+                            Logger.error("Failed to parse WebSocket message:", {
+                                data: event.data,
+                                error:
+                                    parseError instanceof Error
+                                        ? parseError.message
+                                        : String(parseError),
+                            });
+                            return;
+                        }
+
+                        // Check if message is empty object
+                        if (!message || typeof message !== "object") {
+                            Logger.warn("Invalid message format:", message);
+                            return;
+                        }
+
                         Logger.debug("WebSocket message received:", message);
-                        
+
                         if (message.type === "pong") {
                             Logger.debug("Received pong message");
-                        } else if (message.type === "stream" || message.type === "stream_end") {
+                        } else if (
+                            message.type === "stream" ||
+                            message.type === "stream_end"
+                        ) {
                             this.handleStreamMessage(message);
                         }
                     } catch (error) {
-                        Logger.error("Error parsing WebSocket message:", error);
+                        Logger.error("Error handling WebSocket message:", {
+                            error:
+                                error instanceof Error
+                                    ? error.message
+                                    : String(error),
+                        });
                     }
                 };
             } catch (error) {
@@ -114,8 +200,16 @@ export class WebSocketManager {
     }
 
     disconnect() {
+        // Clear reconnection state
+        if (this.reconnectTimeout) {
+            clearTimeout(this.reconnectTimeout);
+            this.reconnectTimeout = null;
+        }
+        this.reconnectAttempts = 0;
+        this.isReconnecting = false;
+
         this.stopPingInterval(); // Stop ping interval before disconnecting
-        
+
         if (this.socket && this.socket.readyState === WebSocket.OPEN) {
             // Send quit message before closing
             const quitMessage = JSON.stringify({ type: "quit" });
@@ -156,6 +250,6 @@ export class WebSocketManager {
 
     private handleStreamMessage(message: any) {
         // Notify all subscribers
-        this.streamHandlers.forEach(handler => handler(message));
+        this.streamHandlers.forEach((handler) => handler(message));
     }
 }

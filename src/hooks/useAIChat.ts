@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { APIClient } from "../services/APIClient";
 import { useFileStore } from "../stores/fileStore";
 import { useToast } from "@chakra-ui/react";
@@ -8,6 +8,7 @@ import { useConversationStore } from "../stores/conversationStore";
 import { ConversationMessage } from "../types/conversation";
 import { ArticleReference } from "../types/chat";
 import Logger from "../utils/logger";
+import { EditParser } from "../utils/editParser";
 
 export const useAIChat = () => {
     const [input, setInput] = useState("");
@@ -22,6 +23,10 @@ export const useAIChat = () => {
     const [referenceArticles, setReferenceArticles] = useState<
         ArticleReference[]
     >([]);
+
+    const [isStreaming, setIsStreaming] = useState(false);
+    const [streamingMessage, setStreamingMessage] =
+        useState<ConversationMessage | null>(null);
 
     const getHighlightData = useCallback((): HighlightData => {
         const editor = editorRef?.current;
@@ -54,8 +59,79 @@ export const useAIChat = () => {
                 timestamp: Date.now(),
             };
 
+            const assistantMessage: ConversationMessage = {
+                id: crypto.randomUUID(),
+                role: "assistant",
+                content: "",
+                think_content: "",
+                edited_article: "",
+                timestamp: Date.now(),
+            };
+
+            // Store original content before streaming
+            const originalContent = getCurrentContent();
+
+            const handleStreamUpdate = (data: any) => {
+                if (data.type === "stream") {
+                    const updatedMessage = {
+                        ...assistantMessage,
+                        content:
+                            assistantMessage.content +
+                            (data.content_chunk || ""),
+                        think_content:
+                            assistantMessage.think_content +
+                            (data.think_content_chunk || ""),
+                        edited_article:
+                            assistantMessage.edited_article +
+                            (data.edited_article_chunk || ""),
+                    };
+
+                    setStreamingMessage(updatedMessage);
+                    assistantMessage.content = updatedMessage.content;
+                    assistantMessage.think_content =
+                        updatedMessage.think_content;
+                    assistantMessage.edited_article =
+                        updatedMessage.edited_article;
+                } else if (data.type === "stream_end") {
+                    let finalMessage = {
+                        ...assistantMessage,
+                        edited_article_related_to:
+                            data.edited_article_related_to,
+                        other_data: data.other_data,
+                    };
+
+                    // Process line edits if they exist
+                    if (
+                        assistantMessage.edited_article &&
+                        assistantMessage.edited_article.trim()
+                    ) {
+                        try {
+                            const lineEdits = EditParser.parseLineEdits(
+                                assistantMessage.edited_article
+                            );
+                            const processedContent = EditParser.applyEdits(
+                                originalContent,
+                                lineEdits
+                            );
+                            finalMessage.edited_article = processedContent;
+                        } catch (error) {
+                            Logger.error("Error processing line edits:", error);
+                            // Keep the original edited_article if processing fails
+                        }
+                    }
+
+                    // Cleanup and add final message
+                    setStreamingMessage(null);
+                    addMessage(finalMessage);
+                    APIClient.unsubscribeFromStream(handleStreamUpdate);
+                    setIsStreaming(false);
+                    setIsLoading(false);
+                }
+            };
+
             try {
                 setIsLoading(true);
+                setIsStreaming(true);
                 await addMessage(userMessage);
                 setInput("");
 
@@ -83,7 +159,9 @@ export const useAIChat = () => {
 
                 const messages = currentConversation?.messages || [];
 
-                const requestData: ChatRequest = {
+                // Create stream request
+                const streamRequest = {
+                    type: "stream",
                     assistant_id: assistantId,
                     messages: messages.concat(userMessage).map((msg) => ({
                         role: msg.role,
@@ -100,22 +178,18 @@ export const useAIChat = () => {
                     config: {},
                 };
 
-                const response = await APIClient.chatWithAssistant(requestData);
+                // Connect WebSocket if not connected
+                if (!APIClient.isWebSocketConnected()) {
+                    await APIClient.connectWebSocket();
+                }
 
-                const assistantMessage: ConversationMessage = {
-                    id: crypto.randomUUID(),
-                    role: "assistant",
-                    content: response.content,
-                    think_content: response.think_content,
-                    edited_article: response.edited_article,
-                    edited_article_related_to:
-                        response.edited_article_related_to,
-                    other_data: response.other_data,
-                    timestamp: Date.now(),
-                };
+                // Subscribe to stream updates
+                APIClient.subscribeToStream(handleStreamUpdate);
 
-                await addMessage(assistantMessage);
+                // Send the stream request
+                await APIClient.sendStreamRequest(streamRequest);
             } catch (error: unknown) {
+                setStreamingMessage(null);
                 Logger.error("Error sending message", error);
                 toast({
                     title: "Error",
@@ -127,8 +201,7 @@ export const useAIChat = () => {
                     duration: 5000,
                 });
                 setInput(userMessage.content);
-            } finally {
-                setIsLoading(false);
+                APIClient.unsubscribeFromStream(handleStreamUpdate);
             }
         },
         [
@@ -145,6 +218,16 @@ export const useAIChat = () => {
         ]
     );
 
+    // Cleanup WebSocket connection on unmount
+    useEffect(() => {
+        return () => {
+            // Cleanup any active WebSocket connection
+            if (APIClient.isWebSocketConnected()) {
+                APIClient.disconnectWebSocket();
+            }
+        };
+    }, []);
+
     return {
         messages: currentConversation?.messages || [],
         input,
@@ -155,5 +238,7 @@ export const useAIChat = () => {
         setOtherArticles,
         referenceArticles,
         setReferenceArticles,
+        isStreaming,
+        streamingMessage,
     };
 };

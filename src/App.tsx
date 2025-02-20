@@ -19,9 +19,8 @@ import { useEffect } from "react";
 import { APIClient } from "./services/APIClient";
 import { useAuthStore } from "./stores/authStore";
 import { SessionExpiredModal } from "./components/SessionExpiredModal";
-import {ErrorBoundary} from "./components/ErrorBoundary";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useFileExplorer } from "./hooks/useFileExplorer";
-
 
 function EditorLayout() {
     const {
@@ -36,7 +35,7 @@ function EditorLayout() {
         handleFileDelete,
     } = useFileStore();
 
-    const {handleFolderSelect} = useFileExplorer();
+    const { handleFolderSelect } = useFileExplorer();
 
     return (
         <ErrorBoundary>
