@@ -38,16 +38,27 @@ class APIClientClass {
     private refreshAttempts = 0;
 
     constructor() {
-        this.tokenManager = new TokenManager(import.meta.env.VITE_API_URL);
+        const isProduction = import.meta.env.VITE_ENV === "production";
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        const wsProtocol = protocol === "https:" ? "wss" : "ws";
 
-        // Create WebSocketManager with WS URL
-        const wsUrl =
-            import.meta.env.VITE_API_URL.replace(/^http/, "ws") +
-            "/chat/stream";
+        const apiUrl = isProduction
+            ? `${protocol}://${hostname}${import.meta.env.VITE_API_PATH}`
+            : `${import.meta.env.VITE_DEV_API_URL}${
+                  import.meta.env.VITE_API_PATH
+              }`;
+
+        const wsUrl = isProduction
+            ? `${wsProtocol}://${hostname}${
+                  import.meta.env.VITE_API_PATH
+              }/chat/stream`
+            : `${apiUrl}/chat/stream`.replace("http", wsProtocol);
+
+        this.tokenManager = new TokenManager(apiUrl);
         this.wsManager = new WebSocketManager(wsUrl, this.tokenManager);
-
         this.client = axios.create({
-            baseURL: import.meta.env.VITE_API_URL,
+            baseURL: apiUrl,
             withCredentials: true,
             headers: {
                 accept: "application/json",

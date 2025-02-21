@@ -15,7 +15,7 @@ To get started with the AI MD Editor frontend, follow these steps:
     ```
 
 2. Modify the environment file: 
-   Rename the `.env.example` file to `.env` or any extension indicating the environment, like `.env.development`. Then, modify the `VITE_API_URL` to reflect the backend API. For local development, you can keep it as it is in the `.env.example`.
+   Rename the `.env.example` file to `.env` or any extension indicating the environment, like `.env.development`. Then, modify the `VITE_API_PATH` and `VITE_DEV_API_URL` to reflect the backend API path and development server URL. For local development, you can keep it as it is in the `.env.example`.
 
 3. Install the necessary dependencies:
    If you do not have npm installed, please install it first. Then run:
