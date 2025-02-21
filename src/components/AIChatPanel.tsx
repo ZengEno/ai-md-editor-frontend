@@ -209,20 +209,24 @@ export function AIChatPanel() {
     );
     const { setEditedContent, setIsShowingEdit } = useEditedArticleStore();
     const [highlightedText, setHighlightedText] = useState("");
-    const messagesEndRef = useRef<HTMLDivElement>(null);
     const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = useCallback(() => {
         if (messagesContainerRef.current) {
-            messagesContainerRef.current.scrollTop =
-                messagesContainerRef.current.scrollHeight;
+            const container = messagesContainerRef.current;
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: "smooth",
+            });
         }
     }, []);
 
-    // Scroll when messages change
+    // Scroll when messages or streaming message changes
     useEffect(() => {
-        scrollToBottom();
-    }, [currentConversation?.messages, scrollToBottom]);
+        // Add a small delay to ensure content is rendered
+        const timeoutId = setTimeout(scrollToBottom, 100);
+        return () => clearTimeout(timeoutId);
+    }, [messages, streamingMessage, scrollToBottom]);
 
     useEffect(() => {
         const editor = editorRef?.current;
@@ -303,20 +307,6 @@ export function AIChatPanel() {
         return "Ask AI for help...";
     };
 
-    // Update the auto-scroll effect
-    useEffect(() => {
-        if (streamingMessage) {
-            // Use setTimeout to ensure content is rendered
-            setTimeout(() => {
-                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            }, 0);
-        }
-    }, [
-        streamingMessage?.content,
-        streamingMessage?.think_content,
-        streamingMessage?.edited_article,
-    ]);
-
     return (
         <Flex direction="column" h="100%">
             <Box flexShrink={0}>
@@ -391,6 +381,8 @@ export function AIChatPanel() {
                         flex={1}
                         overflowY="auto"
                         p={4}
+                        position="relative"
+                        maxH="calc(100vh - 300px)"
                     >
                         {messages.map((message) => (
                             <Box
@@ -478,7 +470,6 @@ export function AIChatPanel() {
                                 <Spinner size="sm" color="blue.500" />
                             </Box>
                         )}
-                        <Box ref={messagesEndRef} />
                     </Box>
 
                     {/* context board and input */}
