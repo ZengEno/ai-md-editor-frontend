@@ -39,21 +39,19 @@ class APIClientClass {
 
     constructor() {
         const isProduction = import.meta.env.VITE_ENV === "production";
-        const protocol = window.location.protocol;
         const hostname = window.location.hostname;
-        const wsProtocol = protocol === "https:" ? "wss" : "ws";
+        const apiPath = import.meta.env.VITE_API_PATH;
 
+        Logger.info(
+            `isProduction: ${isProduction}, hostname: ${hostname}, apiPath: ${apiPath}`
+        );
         const apiUrl = isProduction
-            ? `${protocol}://${hostname}${import.meta.env.VITE_API_PATH}`
-            : `${import.meta.env.VITE_DEV_API_URL}${
-                  import.meta.env.VITE_API_PATH
-              }`;
+            ? `https://${hostname}${apiPath}`
+            : `http://${import.meta.env.VITE_DEV_API_URL}${apiPath}`;
 
         const wsUrl = isProduction
-            ? `${wsProtocol}://${hostname}${
-                  import.meta.env.VITE_API_PATH
-              }/chat/stream`
-            : `${apiUrl}/chat/stream`.replace("http", wsProtocol);
+            ? `wss://${hostname}${apiPath}/chat/stream`
+            : `ws://${import.meta.env.VITE_DEV_API_URL}${apiPath}/chat/stream`;
 
         this.tokenManager = new TokenManager(apiUrl);
         this.wsManager = new WebSocketManager(wsUrl, this.tokenManager);
