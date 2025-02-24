@@ -24,7 +24,7 @@ import {
   
   export function CreateAssistantModal({ isOpen, onClose, onSuccess }: CreateAssistantModalProps) {
     const [name, setName] = useState("");
-    const [provider, setProvider] = useState("qwen");
+    const [provider, setProvider] = useState("deepseek-r1");
     const { createAssistant } = useAssistants();
     const toast = useToast();
   
@@ -71,7 +71,7 @@ import {
               <FormControl isRequired>
                 <FormLabel>LLM Provider</FormLabel>
                 <Select value={provider} onChange={(e) => setProvider(e.target.value)}>
-                  <option value="qwen">Qwen</option>
+                  <option value="deepseek-r1">Deepseek R1</option>
                 </Select>
               </FormControl>
             </VStack>
