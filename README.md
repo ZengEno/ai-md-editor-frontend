@@ -29,7 +29,7 @@ To get started with the AI MD Editor frontend, follow these steps:
    ```
 
 5. Open the web page:
-   After running the above command, you will see a link in the terminal. Open that link in your web browser to access the editor.
+   After running the above command, the web page will be available at `http://localhost:5173/ai-md-editor/`, you can open it in your web browser (Recommend Chrome or Edge).
 
 **Note**: Ensure that the backend service is running simultaneously to use the web page effectively.
 

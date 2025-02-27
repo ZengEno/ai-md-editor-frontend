@@ -50,6 +50,7 @@ function EditorLayout() {
                         alignItems="center"
                         justifyContent="space-between"
                         flexShrink={0}
+                        h="65px"
                     >
                         <UserMenu />
                     </Flex>
@@ -143,7 +144,7 @@ function AppRoutes() {
 // Main App component that provides Router context
 function App() {
     return (
-        <BrowserRouter>
+        <BrowserRouter basename="/ai-md-editor/">
             <AppRoutes />
         </BrowserRouter>
     );
